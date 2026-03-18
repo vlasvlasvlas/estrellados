@@ -20,13 +20,33 @@
       <p id="transport-meta" class="summary-meta" hidden></p>
     </div>
 
-    <div class="topbar-side">
-      <div class="performance-badge" aria-label="Campo visible activo">
-        <span class="performance-badge-label">Set</span>
-        <strong id="voice-count">0</strong>
+    <div class="topbar-side" aria-label="Controles">
+      <div class="topbar-group topbar-group-mode" role="group" aria-label="Modo y tiempo">
+        <select id="arp-type" class="hud-select" title="Arpegiador">
+          <option value="sequential">Linea orbital</option>
+          <option value="weighted">Pulso organico</option>
+        </select>
+
+        <select id="time-mode" class="hud-select" title="Tiempo" aria-label="Tiempo">
+          <option value="now">Ahora</option>
+          <option value="24h">24h comprimidas</option>
+          <option value="seasonal">Ciclo estacional</option>
+        </select>
       </div>
 
-      <div class="topbar-controls" aria-label="Controles">
+      <div class="topbar-group topbar-group-metrics" role="group" aria-label="Metricas">
+        <div class="performance-badge" aria-label="Campo visible activo">
+          <span class="performance-badge-label">Set</span>
+          <strong id="voice-count">0</strong>
+        </div>
+
+        <label class="topbar-bpm" for="bpm">
+          <span class="performance-badge-label">BPM</span>
+          <input id="bpm" type="number" min="40" max="140" step="1" value="68" inputmode="numeric">
+        </label>
+      </div>
+
+      <div class="topbar-group topbar-group-audio" role="group" aria-label="Audio">
         <button
           id="btn-sound-toggle"
           class="btn btn-mini btn-icon-toggle"
@@ -41,22 +61,6 @@
             <path class="icon-slash" d="M5 5l14 14"></path>
           </svg>
         </button>
-
-        <select id="arp-type" class="hud-select" title="Arpegiador">
-          <option value="sequential">Linea orbital</option>
-          <option value="weighted">Pulso organico</option>
-        </select>
-
-        <select id="time-mode" class="hud-select" title="Tiempo" aria-label="Tiempo">
-          <option value="now">Ahora</option>
-          <option value="24h">24h comprimidas</option>
-          <option value="seasonal">Ciclo estacional</option>
-        </select>
-
-        <label class="topbar-bpm" for="bpm">
-          <span class="performance-badge-label">BPM</span>
-          <input id="bpm" type="number" min="40" max="140" step="1" value="68" inputmode="numeric">
-        </label>
 
         <div class="topbar-sound">
           <button
@@ -114,7 +118,9 @@
             </label>
           </div>
         </div>
+      </div>
 
+      <div class="topbar-group topbar-group-utils" role="group" aria-label="Utilidades">
         <button
           id="btn-gps"
           class="btn btn-mini btn-icon-gps btn-primary"
@@ -141,8 +147,9 @@
         >
           ?
         </button>
-        <span id="bpm-display" class="sr-only">68</span>
       </div>
+
+      <span id="bpm-display" class="sr-only">68</span>
     </div>
   </header>
   <button

@@ -171,8 +171,21 @@ input[type="range"] {
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
+  gap: 0;
+  min-width: 0;
+}
+
+.topbar-group {
+  display: flex;
+  align-items: stretch;
   gap: 8px;
   min-width: 0;
+}
+
+.topbar-group + .topbar-group {
+  margin-left: 14px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(184, 214, 255, 0.12);
 }
 
 .performance-badge {
@@ -207,15 +220,6 @@ input[type="range"] {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.topbar-controls {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: stretch;
-  justify-content: flex-end;
-  gap: 8px;
-  min-width: 0;
 }
 
 .topbar-sound {
@@ -1240,10 +1244,20 @@ body.stars-hidden .stars-panel {
     grid-template-columns: 1fr;
   }
 
-  .topbar-side,
-  .topbar-controls {
-    flex-wrap: wrap;
+  .topbar-side {
+    gap: 10px;
     justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .topbar-group {
+    flex-wrap: wrap;
+  }
+
+  .topbar-group + .topbar-group {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
   }
 
   .sound-menu {
