@@ -1,6 +1,6 @@
 # estrellados
 
-estrellados es una web app de cielo sonoro situado. Toma el cielo visible en tiempo real, lo proyecta en pantalla y lo convierte en una partitura performativa con arpegios, drones, selección manual y lectura sonora del campo astronómico.
+estrellados es una web para explorar un cielo en escucha.
 
 Repositorio:
 
