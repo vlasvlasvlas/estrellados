@@ -131,10 +131,59 @@
             <circle cx="12" cy="12" r="1.7" class="gps-dot"></circle>
           </svg>
         </button>
+
+        <button
+          id="btn-info"
+          class="btn btn-mini btn-icon-help"
+          type="button"
+          aria-label="Abrir ayuda del proyecto"
+          title="Abrir ayuda del proyecto"
+        >
+          ?
+        </button>
         <span id="bpm-display" class="sr-only">68</span>
       </div>
     </div>
   </header>
+  <button
+    id="info-modal-backdrop"
+    class="info-modal-backdrop"
+    type="button"
+    aria-label="Cerrar ayuda del proyecto"
+    hidden
+  ></button>
+  <section id="info-modal" class="info-modal" aria-labelledby="info-modal-title" hidden>
+    <div class="info-modal-head">
+      <strong id="info-modal-title">estrellados</strong>
+      <button
+        id="btn-info-close"
+        class="btn btn-mini btn-icon-close"
+        type="button"
+        aria-label="Cerrar ayuda del proyecto"
+        title="Cerrar ayuda del proyecto"
+      >
+        ×
+      </button>
+    </div>
+    <div class="info-modal-body">
+      <section class="info-modal-section">
+        <h2>Qué es</h2>
+        <p>Una interfaz de cielo sonoro situado. Toma el cielo visible, selecciona estrellas del cuadro actual y las convierte en un sistema performativo de arpegios, drones y relaciones espaciales.</p>
+      </section>
+      <section class="info-modal-section">
+        <h2>Cómo se usa</h2>
+        <p>Click en una estrella del mapa o de la tira inferior para abrir su ficha. `Shift + click` activa o apaga un drone. El botón de volumen enciende o silencia el campo. La nota abre mezcla. GPS actualiza la ubicación.</p>
+      </section>
+      <section class="info-modal-section">
+        <h2>Alcance actual</h2>
+        <p>El mapa usa VirtualSky como motor astronómico y una capa propia en canvas para interacción, colores, trayectorias y lectura sonora del cielo. Las estrellas del campo amplio pueden combinar datos reales y estimados para mantener continuidad.</p>
+      </section>
+      <section class="info-modal-section">
+        <h2>Objetivo</h2>
+        <p>No es un atlas pasivo sino un instrumento de escucha: navegar el cielo, elegir relaciones entre estrellas y traducir posición, brillo, espectro y distancia a comportamiento sonoro.</p>
+      </section>
+    </div>
+  </section>
   <p id="status" class="sr-only" aria-live="polite">Listo</p>
 
   <main class="layout">
@@ -183,15 +232,32 @@
             <h2 id="inspector-name">Toca una estrella</h2>
             <p id="inspector-subtitle">Sin seleccion.</p>
           </div>
-          <button
-            id="inspector-close"
-            class="btn btn-mini btn-icon-close"
-            type="button"
-            aria-label="Cerrar datos de la estrella"
-            title="Cerrar datos de la estrella"
-          >
-            ×
-          </button>
+          <div class="inspector-panel-actions">
+            <a
+              id="inspector-link"
+              class="btn btn-mini btn-icon-link"
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Abrir datos externos de la estrella"
+              title="Abrir datos externos de la estrella"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M10 14L21 3"></path>
+                <path d="M15 3h6v6"></path>
+                <path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"></path>
+              </svg>
+            </a>
+            <button
+              id="inspector-close"
+              class="btn btn-mini btn-icon-close"
+              type="button"
+              aria-label="Cerrar datos de la estrella"
+              title="Cerrar datos de la estrella"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         <div class="inspector-body">

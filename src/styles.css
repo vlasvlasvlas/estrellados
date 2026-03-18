@@ -18,9 +18,9 @@
   --danger: #f86b82;
   --shadow-lg: 0 26px 90px rgba(2, 7, 18, 0.55);
   --shadow-md: 0 16px 44px rgba(3, 9, 20, 0.42);
-  --radius-xl: 14px;
-  --radius-lg: 12px;
-  --radius-md: 10px;
+  --radius-xl: 10px;
+  --radius-lg: 8px;
+  --radius-md: 6px;
   --control-height: 56px;
   --icon-control-size: 56px;
   --panel-height: clamp(540px, calc(100vh - 230px), 860px);
@@ -426,6 +426,26 @@ input[type="range"] {
   stroke: none;
 }
 
+.btn-icon-help {
+  width: var(--icon-control-size);
+  min-width: var(--icon-control-size);
+  height: var(--icon-control-size);
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-xl);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.btn-icon-help.is-open {
+  background:
+    linear-gradient(125deg, rgba(83, 167, 255, 0.94), rgba(111, 232, 205, 0.9));
+  color: #08111d;
+  border-color: transparent;
+}
+
 .btn-icon-note.is-ready {
   border-color: rgba(152, 225, 200, 0.34);
   box-shadow: 0 0 0 1px rgba(159, 240, 212, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -458,7 +478,7 @@ input[type="range"] {
   gap: 12px;
   padding: 14px;
   border: 1px solid rgba(168, 211, 255, 0.16);
-  border-radius: 16px;
+  border-radius: 10px;
   background:
     linear-gradient(180deg, rgba(10, 18, 32, 0.96), rgba(7, 14, 25, 0.94));
   box-shadow: 0 18px 40px rgba(2, 7, 18, 0.48);
@@ -468,6 +488,76 @@ input[type="range"] {
 .sound-menu[hidden],
 .sound-menu-backdrop[hidden] {
   display: none !important;
+}
+
+.info-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 34;
+  border: 0;
+  padding: 0;
+  background: rgba(3, 8, 18, 0.34);
+  cursor: default;
+}
+
+.info-modal {
+  position: fixed;
+  top: 84px;
+  right: 18px;
+  z-index: 40;
+  width: min(420px, calc(100vw - 28px));
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(168, 211, 255, 0.16);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(10, 18, 32, 0.97), rgba(7, 14, 25, 0.95));
+  box-shadow: 0 18px 40px rgba(2, 7, 18, 0.48);
+  backdrop-filter: blur(18px) saturate(125%);
+}
+
+.info-modal[hidden],
+.info-modal-backdrop[hidden] {
+  display: none !important;
+}
+
+.info-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.info-modal-head strong {
+  font-size: 12px;
+  font-family: "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-strong);
+}
+
+.info-modal-body {
+  display: grid;
+  gap: 12px;
+}
+
+.info-modal-section {
+  display: grid;
+  gap: 5px;
+}
+
+.info-modal-section h2 {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+.info-modal-section p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .sound-menu-head {
@@ -664,7 +754,7 @@ input[type="range"] {
   padding: 0;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 
 .map-tool-btn svg {
@@ -709,7 +799,7 @@ input[type="range"] {
   min-height: 62px;
   padding: 10px 10px 9px;
   border: 1px solid rgba(168, 211, 255, 0.1);
-  border-radius: 12px;
+  border-radius: 8px;
   background:
     linear-gradient(160deg, rgba(17, 29, 49, 0.94), rgba(12, 19, 32, 0.84));
   overflow: hidden;
@@ -807,6 +897,35 @@ input[type="range"] {
   min-width: 0;
 }
 
+.inspector-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-icon-link {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+}
+
+.btn-icon-link svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btn-icon-link path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .star-inspector {
   --inspector-accent: #89d5ff;
   position: absolute;
@@ -856,7 +975,7 @@ input[type="range"] {
 .metric-pill {
   padding: 6px 8px;
   border: 1px solid rgba(166, 211, 255, 0.18);
-  border-radius: 10px;
+  border-radius: 6px;
   background: rgba(20, 36, 62, 0.64);
   color: var(--text);
   font-size: 10px;
@@ -870,7 +989,7 @@ input[type="range"] {
   gap: 6px;
   padding: 10px;
   border: 1px solid rgba(166, 211, 255, 0.12);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(16, 28, 50, 0.42);
 }
 
@@ -886,7 +1005,7 @@ input[type="range"] {
   gap: 12px;
   padding: 12px;
   border: 1px solid rgba(166, 211, 255, 0.14);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(10, 19, 34, 0.72);
 }
 
@@ -965,7 +1084,7 @@ body.stars-hidden .stars-panel {
   display: grid;
   padding: 0;
   border: 1px solid rgba(168, 211, 255, 0.12);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(15, 24, 39, 0.78);
   transition:
     border-color 120ms ease,
@@ -1012,7 +1131,7 @@ body.stars-hidden .stars-panel {
 
 .star-card-state {
   padding: 4px 7px;
-  border-radius: 10px;
+  border-radius: 6px;
   background: rgba(18, 34, 59, 0.78);
   border: 1px solid rgba(168, 211, 255, 0.14);
   color: var(--muted-strong);
@@ -1036,7 +1155,7 @@ body.stars-hidden .stars-panel {
 .star-data span {
   padding: 4px 7px;
   border: 1px solid rgba(168, 211, 255, 0.14);
-  border-radius: 10px;
+  border-radius: 6px;
   background: rgba(18, 34, 59, 0.62);
   font-size: 10px;
   color: var(--text);

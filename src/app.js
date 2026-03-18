@@ -118,6 +118,7 @@ const dom = {
   btnSoundMenu: document.querySelector("#btn-sound-menu"),
   btnRecenter: document.querySelector("#btn-recenter"),
   btnFullscreen: document.querySelector("#btn-fullscreen"),
+  btnInfo: document.querySelector("#btn-info"),
   modeSelect: document.querySelector("#time-mode"),
   arpTypeSelect: document.querySelector("#arp-type"),
   offsetSlider: null,
@@ -131,6 +132,9 @@ const dom = {
   soundMenu: document.querySelector("#sound-menu"),
   soundMenuBackdrop: document.querySelector("#sound-menu-backdrop"),
   btnSoundMenuClose: document.querySelector("#btn-sound-menu-close"),
+  infoModal: document.querySelector("#info-modal"),
+  infoModalBackdrop: document.querySelector("#info-modal-backdrop"),
+  btnInfoClose: document.querySelector("#btn-info-close"),
   soundNoteLevel: document.querySelector("#sound-note-level"),
   soundDroneLevel: document.querySelector("#sound-drone-level"),
   soundDelayLevel: document.querySelector("#sound-delay-level"),
@@ -140,6 +144,7 @@ const dom = {
   inspectorName: document.querySelector("#inspector-name"),
   inspectorSubtitle: document.querySelector("#inspector-subtitle"),
   inspectorBody: document.querySelector("#star-inspector .inspector-body"),
+  inspectorLink: document.querySelector("#inspector-link"),
   inspectorMetrics: document.querySelector("#inspector-metrics"),
   inspectorSonic: document.querySelector("#inspector-sonic"),
   inspectorInfoPanel: document.querySelector("#inspector-info-panel"),
@@ -183,6 +188,33 @@ function shortName(value, max = 14) {
     return "Sin nombre";
   }
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+function getStarExternalQuery(star) {
+  if (!star) {
+    return "";
+  }
+
+  const explicitName = String(star.name || "").trim();
+  if (/^HIP\s+\d+$/i.test(explicitName)) {
+    return explicitName.replace(/\s+/g, " ");
+  }
+
+  const hipFromVirtualSkyId = String(star.id || "").match(/^vs-(\d+)$/);
+  if (hipFromVirtualSkyId) {
+    return `HIP ${hipFromVirtualSkyId[1]}`;
+  }
+
+  return explicitName;
+}
+
+function getStarExternalUrl(star) {
+  const query = getStarExternalQuery(star);
+  if (!query) {
+    return "";
+  }
+
+  return `https://simbad.cds.unistra.fr/simbad/sim-id?Ident=${encodeURIComponent(query)}&submit=su`;
 }
 
 function setStatus(message) {
@@ -262,6 +294,26 @@ function setSoundMenuOpen(open) {
   }
   document.body.classList.toggle("sound-menu-open", open);
   syncSoundMenuButton();
+}
+
+function setInfoModalOpen(open) {
+  if (!dom.infoModal) {
+    return;
+  }
+
+  dom.infoModal.hidden = !open;
+  if (dom.infoModalBackdrop) {
+    dom.infoModalBackdrop.hidden = !open;
+  }
+  if (dom.btnInfo) {
+    dom.btnInfo.classList.toggle("is-open", open);
+    dom.btnInfo.setAttribute("aria-expanded", String(open));
+    dom.btnInfo.title = open ? "Cerrar ayuda del proyecto" : "Abrir ayuda del proyecto";
+    dom.btnInfo.setAttribute(
+      "aria-label",
+      open ? "Cerrar ayuda del proyecto" : "Abrir ayuda del proyecto"
+    );
+  }
 }
 
 function isWithinSoundMenu(target) {
@@ -1127,7 +1179,7 @@ function drawTrailLayer(context) {
       context.save();
       context.beginPath();
       context.lineCap = "round";
-      context.lineWidth = 5.2;
+      context.lineWidth = 2.6;
       context.strokeStyle = "rgba(255, 233, 188, 0.94)";
       context.shadowBlur = 16;
       context.shadowColor = "rgba(255, 210, 130, 0.8)";
@@ -1142,7 +1194,7 @@ function drawTrailLayer(context) {
     const current = points[index];
     const next = points[index + 1];
     const alpha = clamp(0.66 - index * 0.05, 0.1, 0.66);
-    const strokeWidth = clamp(4.4 - index * 0.2, 1.3, 4.4);
+    const strokeWidth = clamp(2.2 - index * 0.1, 0.7, 2.2);
 
     context.beginPath();
     context.lineCap = "round";
@@ -1351,6 +1403,10 @@ function renderInspector() {
   if (!star) {
     dom.inspectorName.textContent = "Toca una estrella";
     dom.inspectorSubtitle.textContent = "Sin seleccion.";
+    if (dom.inspectorLink) {
+      dom.inspectorLink.hidden = true;
+      dom.inspectorLink.href = "#";
+    }
     dom.inspectorMetrics.innerHTML = "";
     dom.inspectorSonic.innerHTML = "<p>Sin datos.</p>";
     if (dom.inspectorInfoPanel) {
@@ -1367,10 +1423,22 @@ function renderInspector() {
   const enabled = isStarEnabled(star.id);
   const isDroneActive = soundEngine.activeDrones.has(star.id);
   const usesEstimatedCatalogData = Boolean(star.estimatedCatalogData);
+  const externalUrl = getStarExternalUrl(star);
 
   dom.inspector.style.setProperty("--inspector-accent", getSpectralAccent(star));
   dom.inspectorName.textContent = star.name;
   dom.inspectorSubtitle.textContent = `${star.constellation} · ${enabled ? "en flujo" : "fuera"}`;
+  if (dom.inspectorLink) {
+    dom.inspectorLink.hidden = !externalUrl;
+    dom.inspectorLink.href = externalUrl || "#";
+    dom.inspectorLink.title = externalUrl
+      ? "Abrir datos astronómicos en SIMBAD"
+      : "No hay enlace externo para esta estrella";
+    dom.inspectorLink.setAttribute(
+      "aria-label",
+      externalUrl ? "Abrir datos astronómicos en SIMBAD" : "No hay enlace externo para esta estrella"
+    );
+  }
   dom.inspectorMetrics.innerHTML = `
     <span class="metric-pill">Altitud ${fmtStarValue(star.altitudeDeg)}°</span>
     <span class="metric-pill">Azimut ${fmtStarValue(star.azimuthDeg)}°</span>
@@ -1738,6 +1806,13 @@ async function toggleFullscreen() {
 function bindEvents() {
   dom.btnGps.addEventListener("click", requestGeolocation);
 
+  dom.btnInfo?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const shouldOpen = Boolean(dom.infoModal?.hidden);
+    setSoundMenuOpen(false);
+    setInfoModalOpen(shouldOpen);
+  });
+
   dom.btnSoundMenu.addEventListener("click", async (event) => {
     event.stopPropagation();
     if (!dom.soundMenu.hidden) {
@@ -1745,6 +1820,7 @@ function bindEvents() {
       return;
     }
 
+    setInfoModalOpen(false);
     const activated = await ensureAudioReady();
     setSoundMenuOpen(true);
     if (activated) {
@@ -1763,6 +1839,19 @@ function bindEvents() {
 
   dom.soundMenuBackdrop?.addEventListener("pointerdown", () => {
     setSoundMenuOpen(false);
+  });
+
+  dom.infoModal?.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+
+  dom.btnInfoClose?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setInfoModalOpen(false);
+  });
+
+  dom.infoModalBackdrop?.addEventListener("pointerdown", () => {
+    setInfoModalOpen(false);
   });
 
   dom.btnSoundToggle.addEventListener("click", async () => {
@@ -1951,6 +2040,7 @@ function bindEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       setSoundMenuOpen(false);
+      setInfoModalOpen(false);
       closeInspector();
     }
   });
@@ -1975,6 +2065,7 @@ function boot() {
   syncSoundMenuButton();
   syncSoundMenuControls();
   setSoundMenuOpen(false);
+  setInfoModalOpen(false);
   syncInspectorVisibility();
   resetSkyMap();
   refreshSkyState({ forceList: true });
