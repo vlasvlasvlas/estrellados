@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estrellados | Cielo Sonoro Situado</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>estrellados</h1>
+    </div>
+
+    <div class="topbar-meta" aria-live="polite" hidden>
+      <strong id="summary-title"></strong>
+      <p id="transport-meta" class="summary-meta" hidden></p>
+    </div>
+
+    <div class="topbar-side">
+      <div class="performance-badge" aria-label="Campo visible activo">
+        <span class="performance-badge-label">Set</span>
+        <strong id="voice-count">0</strong>
+      </div>
+
+      <div class="topbar-controls" aria-label="Controles">
+        <button
+          id="btn-sound-toggle"
+          class="btn btn-mini btn-icon-toggle"
+          type="button"
+          aria-label="Silenciar campo sonoro"
+          title="Silenciar campo sonoro"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path class="icon-body" d="M4 10h4l5-4v12l-5-4H4z"></path>
+            <path class="icon-wave" d="M16 9.25c.95.7 1.45 1.62 1.45 2.75s-.5 2.05-1.45 2.75"></path>
+            <path class="icon-wave" d="M18.75 6.6c1.5 1.35 2.25 3.15 2.25 5.4s-.75 4.05-2.25 5.4"></path>
+            <path class="icon-slash" d="M5 5l14 14"></path>
+          </svg>
+        </button>
+
+        <select id="arp-type" class="hud-select" title="Arpegiador">
+          <option value="sequential">Linea orbital</option>
+          <option value="weighted">Pulso organico</option>
+        </select>
+
+        <select id="time-mode" class="hud-select" title="Tiempo" aria-label="Tiempo">
+          <option value="now">Ahora</option>
+          <option value="24h">24h comprimidas</option>
+          <option value="seasonal">Ciclo estacional</option>
+        </select>
+
+        <label class="topbar-bpm" for="bpm">
+          <span class="performance-badge-label">BPM</span>
+          <input id="bpm" type="number" min="40" max="140" step="1" value="68" inputmode="numeric">
+        </label>
+
+        <div class="topbar-sound">
+          <button
+            id="btn-sound-menu"
+            class="btn btn-mini btn-icon-note"
+            type="button"
+            aria-label="Abrir mezcla de sonido"
+            title="Abrir mezcla de sonido"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 4v9.2a3.2 3.2 0 1 1-1.8-2.88V7.2l7-1.7v7.7a3.2 3.2 0 1 1-1.8-2.88V4.9z"></path>
+            </svg>
+          </button>
+
+          <button
+            id="sound-menu-backdrop"
+            class="sound-menu-backdrop"
+            type="button"
+            aria-label="Cerrar mezcla de sonido"
+            hidden
+          ></button>
+
+          <div id="sound-menu" class="sound-menu" hidden>
+            <div class="sound-menu-head">
+              <strong>Sonido</strong>
+              <button
+                id="btn-sound-menu-close"
+                class="btn btn-mini btn-icon-close"
+                type="button"
+                aria-label="Cerrar mezcla de sonido"
+                title="Cerrar mezcla de sonido"
+              >
+                ×
+              </button>
+            </div>
+
+            <label class="sound-control" for="sound-note-level">
+              <span>Notas</span>
+              <input id="sound-note-level" type="range" min="0" max="1" step="0.01" value="0.92">
+            </label>
+
+            <label class="sound-control" for="sound-drone-level">
+              <span>Drones</span>
+              <input id="sound-drone-level" type="range" min="0" max="1" step="0.01" value="0.42">
+            </label>
+
+            <label class="sound-control" for="sound-delay-level">
+              <span>Delay</span>
+              <input id="sound-delay-level" type="range" min="0" max="1" step="0.01" value="0.62">
+            </label>
+
+            <label class="sound-control" for="sound-reverb-level">
+              <span>Reverb</span>
+              <input id="sound-reverb-level" type="range" min="0" max="1" step="0.01" value="0.24">
+            </label>
+          </div>
+        </div>
+
+        <button
+          id="btn-gps"
+          class="btn btn-mini btn-icon-gps btn-primary"
+          type="button"
+          aria-label="Usar GPS"
+          title="Usar GPS"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v3"></path>
+            <path d="M12 18v3"></path>
+            <path d="M3 12h3"></path>
+            <path d="M18 12h3"></path>
+            <circle cx="12" cy="12" r="5.25"></circle>
+            <circle cx="12" cy="12" r="1.7" class="gps-dot"></circle>
+          </svg>
+        </button>
+        <span id="bpm-display" class="sr-only">68</span>
+      </div>
+    </div>
+  </header>
+  <p id="status" class="sr-only" aria-live="polite">Listo</p>
+
+  <main class="layout">
+    <section class="map-panel" aria-label="Mapa del cielo">
+      <div id="map-stage" class="map-stage">
+        <div id="starmap"></div>
+        <canvas id="star-hotspots" class="star-hotspots" aria-hidden="true"></canvas>
+
+        <div class="map-tools">
+          <button
+            id="btn-recenter"
+            class="btn btn-mini btn-secondary map-tool-btn"
+            type="button"
+            aria-label="Recentrar vista"
+            title="Recentrar vista"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5V2.5"></path>
+              <path d="M12 21.5V19"></path>
+              <path d="M5 12H2.5"></path>
+              <path d="M21.5 12H19"></path>
+              <circle cx="12" cy="12" r="5.2"></circle>
+              <path d="M12 12L15.4 8.9"></path>
+            </svg>
+          </button>
+          <button
+            id="btn-fullscreen"
+            class="btn btn-mini btn-secondary map-tool-btn"
+            type="button"
+            aria-label="Entrar fullscreen"
+            title="Entrar fullscreen"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 3H3v5"></path>
+              <path d="M16 3h5v5"></path>
+              <path d="M21 16v5h-5"></path>
+              <path d="M3 16v5h5"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <section class="star-inspector" id="star-inspector" aria-live="polite" hidden>
+        <div class="panel-head panel-head-compact inspector-panel-head">
+          <div>
+            <h2 id="inspector-name">Toca una estrella</h2>
+            <p id="inspector-subtitle">Sin seleccion.</p>
+          </div>
+          <button
+            id="inspector-close"
+            class="btn btn-mini btn-icon-close"
+            type="button"
+            aria-label="Cerrar datos de la estrella"
+            title="Cerrar datos de la estrella"
+          >
+            ×
+          </button>
+        </div>
+
+        <div class="inspector-body">
+          <div class="inspector-orb" aria-hidden="true"></div>
+          <div id="inspector-metrics" class="inspector-metrics">
+            <span class="metric-pill">Altitud</span>
+            <span class="metric-pill">Azimut</span>
+            <span class="metric-pill">Magnitud</span>
+            <span class="metric-pill">Espectral</span>
+          </div>
+          <div id="inspector-sonic" class="inspector-sonic">
+            <p>Selecciona una estrella.</p>
+          </div>
+          <div id="inspector-info-panel" class="inspector-info-panel">
+            <p class="inspector-info-empty">Selecciona una estrella para ver su ficha.</p>
+          </div>
+          <div class="star-actions inspector-actions">
+            <button id="inspector-toggle" class="btn btn-mini">Dentro</button>
+            <button id="inspector-play" class="btn btn-mini">Nota</button>
+            <button id="inspector-drone" class="btn btn-mini btn-secondary">Drone</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="performance-strip">
+        <div class="map-info" id="map-info">Buenos Aires · set inicial</div>
+        <div id="voice-strip" class="voice-strip" aria-label="Rastro del arpegiador"></div>
+      </div>
+    </section>
+
+    <aside class="side-stack" aria-label="Inspector y set" hidden>
+      <aside class="stars-panel" id="stars-panel" aria-label="Estrellas visibles">
+        <div class="panel-head">
+          <h2>Set activo</h2>
+          <p id="stars-meta"></p>
+        </div>
+        <div id="stars-list" class="stars-list"></div>
+      </aside>
+    </aside>
+  </main>
+
+  <script src="https://slowe.github.io/VirtualSky/stuquery.min.js"></script>
+  <script src="https://slowe.github.io/VirtualSky/virtualsky.min.js"></script>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
