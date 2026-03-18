@@ -1502,11 +1502,8 @@ function updateStarsMeta(observationDate) {
 }
 
 function updateMapInfo() {
-  const fieldStars = getAvailableStars().length;
-  const poolCount = computeSoundPoolFromEnabled().length;
-
-  dom.mapInfo.textContent =
-    `${state.locationLabel} · set ${fieldStars} · arpegio ${poolCount}`;
+  dom.mapInfo.textContent = "";
+  dom.mapInfo.hidden = true;
 }
 
 function updateSummary() {

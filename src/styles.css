@@ -23,7 +23,7 @@
   --radius-md: 6px;
   --control-height: 56px;
   --icon-control-size: 56px;
-  --panel-height: clamp(540px, calc(100vh - 230px), 860px);
+  --panel-height: clamp(620px, calc(100dvh - 148px), 980px);
   --header-height: 58px;
   --hud-height: 88px;
 }
@@ -656,7 +656,7 @@ input[type="range"] {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0;
-  padding: 10px 18px 18px;
+  padding: 8px 18px 14px;
   align-items: start;
 }
 
@@ -672,6 +672,7 @@ input[type="range"] {
 }
 
 .map-panel {
+  position: relative;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   height: var(--panel-height);
@@ -747,8 +748,9 @@ input[type="range"] {
   bottom: 16px;
   right: 16px;
   z-index: 8;
-  display: flex;
+  display: grid;
   gap: 8px;
+  justify-items: end;
 }
 
 .map-tool-btn {
@@ -776,32 +778,36 @@ input[type="range"] {
 }
 
 .performance-strip {
-  display: grid;
-  gap: 8px;
-  padding: 10px 12px 12px;
+  display: block;
+  padding: 6px 8px 8px;
   border-top: 1px solid rgba(164, 209, 255, 0.12);
   background:
     linear-gradient(180deg, rgba(9, 17, 30, 0.96), rgba(7, 13, 24, 0.92));
 }
 
 .map-info {
-  font-size: 13px;
-  color: var(--muted);
+  display: none;
 }
 
 .voice-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
+  display: flex;
+  align-items: stretch;
   gap: 8px;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 .voice-chip {
   position: relative;
   display: grid;
   gap: 3px;
-  width: 100%;
-  min-height: 62px;
-  padding: 10px 10px 9px;
+  flex: 0 0 120px;
+  width: 120px;
+  min-width: 120px;
+  min-height: 54px;
+  padding: 8px 9px 8px;
   border: 1px solid rgba(168, 211, 255, 0.1);
   border-radius: 8px;
   background:
@@ -823,14 +829,14 @@ input[type="range"] {
 }
 
 .voice-chip strong {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1;
 }
 
 .voice-chip span,
 .voice-chip small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 9px;
   line-height: 1.35;
 }
 
@@ -1228,12 +1234,6 @@ body.stars-hidden .stars-panel {
   }
 }
 
-@media (max-width: 1320px) {
-  .voice-strip {
-    grid-template-columns: repeat(auto-fit, minmax(98px, 1fr));
-  }
-}
-
 @media (max-width: 1120px) {
   :root {
     --hud-height: 110px;
@@ -1320,8 +1320,8 @@ body.stars-hidden .stars-panel {
     max-height: calc(100% - 92px);
   }
 
-  .voice-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .performance-strip {
+    padding: 6px 6px 8px;
   }
 
   .inspector-orb {
