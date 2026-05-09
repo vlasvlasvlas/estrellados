@@ -15,6 +15,7 @@ Hoy el proyecto ya corre como prototipo web estático, sin build step, con:
 - overlay propio en canvas para picking y dibujo del arpegiador
 - buscador por nombre/HIP que centra la estrella, abre su ficha y dispara su nota
 - buscador de las 88 constelaciones IAU con alias en castellano
+- buscador de nebulosas conocidas con estrella ancla relacionada
 - arranque muteado por default
 - mezcla de sonido desde menú compacto
 - popup de datos de estrella abierto solo al clickear una estrella
@@ -29,6 +30,7 @@ Hoy el proyecto ya corre como prototipo web estático, sin build step, con:
 - click en una estrella de la tira inferior: abre ese mismo popup
 - buscar una estrella por nombre o HIP: centra el mapa, abre la ficha y toca su nota
 - buscar una constelación: centra esa región del cielo
+- buscar una nebulosa conocida: centra esa region y usa su estrella ancla como referencia sonora
 - click en una estrella del panel de set: la activa o desactiva en el arpegiador
 - `shift + click` en una estrella: alterna drone
 - botón de volumen: activa o silencia el campo sonoro

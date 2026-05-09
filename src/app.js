@@ -1,5 +1,6 @@
 import { BRIGHT_STARS } from "./stars-catalog.js";
 import { CONSTELLATIONS } from "./constellations-catalog.js";
+import { NEBULA_LANDMARKS } from "./nebula-catalog.js";
 import { collectVisibleStars, equatorialToHorizontal, getObservationDate, starToSoundProfile } from "./astro.js";
 import { SoundEngine } from "./sound-engine.js";
 
@@ -8,7 +9,7 @@ const RAD_TO_DEG = 180 / Math.PI;
 const PERFORMANCE_MIN_ALTITUDE_DEG = -90;
 const FRAME_STAR_LIMIT = 2400;
 const FRAME_STAR_MAG_LIMIT = 7.2;
-const SEARCH_OPTIONS_LIMIT = 320;
+const SEARCH_OPTIONS_LIMIT = 420;
 const MAP_PICK_RADIUS_PX = 28;
 const MAP_DRAG_THRESHOLD_PX = 8;
 const MAP_CLICK_SUPPRESS_MS = 240;
@@ -1142,6 +1143,17 @@ function getConstellationSearchAliases(constellation) {
   ].filter(Boolean)));
 }
 
+function getNebulaSearchAliases(nebula) {
+  return Array.from(new Set([
+    nebula?.name,
+    nebula?.nameEs,
+    nebula?.objectType,
+    nebula?.constellation,
+    ...(Array.isArray(nebula?.catalog) ? nebula.catalog : []),
+    ...(Array.isArray(nebula?.aliases) ? nebula.aliases : [])
+  ].filter(Boolean)));
+}
+
 function addSearchCandidate(candidates, star, priority) {
   if (!star || !star.id || !Number.isFinite(star.raHours) || !Number.isFinite(star.decDeg)) {
     return;
@@ -1178,6 +1190,33 @@ function addSearchCandidate(candidates, star, priority) {
   });
 }
 
+function addNebulaSearchCandidate(candidates, nebula, priority) {
+  if (
+    !nebula ||
+    !nebula.id ||
+    !Number.isFinite(nebula.raHours) ||
+    !Number.isFinite(nebula.decDeg)
+  ) {
+    return;
+  }
+
+  const aliases = getNebulaSearchAliases(nebula);
+  const normalizedAliases = Array.from(new Set(aliases.map(normalizeStarName).filter(Boolean)));
+  if (!normalizedAliases.length) {
+    return;
+  }
+
+  const key = `nebula:${nebula.id}`;
+  candidates.set(key, {
+    id: key,
+    type: "nebula",
+    nebula,
+    aliases,
+    normalizedAliases,
+    priority
+  });
+}
+
 function addConstellationSearchCandidate(candidates, constellation, priority) {
   if (
     !constellation ||
@@ -1206,12 +1245,24 @@ function addConstellationSearchCandidate(candidates, constellation, priority) {
 }
 
 function compareSearchCandidates(a, b) {
+  if (!a) {
+    return 1;
+  }
+  if (!b) {
+    return -1;
+  }
+
   if (a.priority !== b.priority) {
     return a.priority - b.priority;
   }
 
   if (a.type !== b.type) {
-    return a.type === "constellation" ? -1 : 1;
+    const typeRank = { nebula: 0, constellation: 1, star: 2 };
+    return (typeRank[a.type] ?? 9) - (typeRank[b.type] ?? 9);
+  }
+
+  if (a.type === "nebula") {
+    return a.nebula.name.localeCompare(b.nebula.name);
   }
 
   if (a.type === "constellation") {
@@ -1224,8 +1275,15 @@ function compareSearchCandidates(a, b) {
 function buildSearchCandidates() {
   const candidates = new Map();
 
+  for (const nebula of NEBULA_LANDMARKS) {
+    addNebulaSearchCandidate(candidates, nebula, 0);
+    if (nebula.anchorStar) {
+      addSearchCandidate(candidates, nebula.anchorStar, 2);
+    }
+  }
+
   for (const constellation of CONSTELLATIONS) {
-    addConstellationSearchCandidate(candidates, constellation, 0);
+    addConstellationSearchCandidate(candidates, constellation, 1);
   }
 
   for (const star of getAvailableStars()) {
@@ -1303,6 +1361,10 @@ function findStarSearchCandidate(query) {
 }
 
 function getSearchCandidateName(candidate) {
+  if (candidate?.type === "nebula") {
+    return candidate.nebula.name;
+  }
+
   if (candidate?.type === "constellation") {
     return candidate.constellation.name;
   }
@@ -1311,6 +1373,17 @@ function getSearchCandidateName(candidate) {
 }
 
 function getSearchCandidateOptionEntries(candidate) {
+  if (candidate.type === "nebula") {
+    const nebula = candidate.nebula;
+    const label = `${nebula.objectType || "Nebulosa"} · ${nebula.constellation}`;
+    return Array.from(new Set([
+      nebula.name,
+      nebula.nameEs,
+      ...(Array.isArray(nebula.catalog) ? nebula.catalog : []),
+      ...(Array.isArray(nebula.aliases) ? nebula.aliases : [])
+    ].filter(Boolean))).map((value) => ({ value, label }));
+  }
+
   if (candidate.type === "constellation") {
     const constellation = candidate.constellation;
     const label = `Constelacion · ${constellation.name} · ${constellation.iau}`;
@@ -1440,6 +1513,41 @@ function focusConstellationCandidate(candidate) {
     : `${visibleCount} estrellas en el campo`;
 
   setStatus(`${constellation.name} centrada · ${countText}.`);
+}
+
+function focusNebulaCandidate(candidate) {
+  const nebula = candidate.nebula;
+  const centered = centerSkyOnStar(nebula);
+  if (centered) {
+    refreshSkyState({ forceList: true });
+  }
+
+  if (!nebula.anchorStar) {
+    setStatus(`${nebula.name} centrada.`);
+    return;
+  }
+
+  const projectedAnchor = getStarById(nebula.anchorStar.id) || projectSearchStar(nebula.anchorStar);
+  if (!projectedAnchor) {
+    setStatus(`${nebula.name} centrada. Estrella ancla: ${nebula.anchorStar.name}.`);
+    return;
+  }
+
+  if (!getStarById(projectedAnchor.id)) {
+    upsertFocusedStar(projectedAnchor);
+  }
+
+  const anchorStar = getStarById(projectedAnchor.id) || projectedAnchor;
+  openInspectorForStar(anchorStar, { scroll: true });
+
+  setStatus(`${nebula.name} centrada · ancla ${anchorStar.name}.`);
+  playStarFromInteraction(anchorStar, "search")
+    .then(() => {
+      setStatus(`${nebula.name} centrada · ${anchorStar.name} sonando.`);
+    })
+    .catch(() => {
+      setStatus(`${nebula.name} centrada · activa audio para escuchar ${anchorStar.name}.`);
+    });
 }
 
 function getSelectedStar() {
@@ -1891,6 +1999,11 @@ function updateSummary() {
 }
 
 function focusSearchCandidate(candidate) {
+  if (candidate.type === "nebula") {
+    focusNebulaCandidate(candidate);
+    return;
+  }
+
   if (candidate.type === "constellation") {
     focusConstellationCandidate(candidate);
     return;
@@ -2215,7 +2328,7 @@ function bindEvents() {
     const candidate = findStarSearchCandidate(query);
 
     if (!candidate) {
-      setStatus(`No encontre estrella o constelacion llamada "${query.trim()}".`);
+      setStatus(`No encontre estrella, constelacion u objeto llamado "${query.trim()}".`);
       return;
     }
 
