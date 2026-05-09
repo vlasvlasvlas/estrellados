@@ -1,4 +1,5 @@
 import { BRIGHT_STARS } from "./stars-catalog.js";
+import { CONSTELLATIONS } from "./constellations-catalog.js";
 import { collectVisibleStars, equatorialToHorizontal, getObservationDate, starToSoundProfile } from "./astro.js";
 import { SoundEngine } from "./sound-engine.js";
 
@@ -7,7 +8,7 @@ const RAD_TO_DEG = 180 / Math.PI;
 const PERFORMANCE_MIN_ALTITUDE_DEG = -90;
 const FRAME_STAR_LIMIT = 2400;
 const FRAME_STAR_MAG_LIMIT = 7.2;
-const SEARCH_OPTIONS_LIMIT = 180;
+const SEARCH_OPTIONS_LIMIT = 320;
 const MAP_PICK_RADIUS_PX = 28;
 const MAP_DRAG_THRESHOLD_PX = 8;
 const MAP_CLICK_SUPPRESS_MS = 240;
@@ -1132,6 +1133,15 @@ function getStarSearchAliases(star) {
   ].filter(Boolean)));
 }
 
+function getConstellationSearchAliases(constellation) {
+  return Array.from(new Set([
+    constellation?.name,
+    constellation?.nameEs,
+    constellation?.iau,
+    ...(Array.isArray(constellation?.aliases) ? constellation.aliases : [])
+  ].filter(Boolean)));
+}
+
 function addSearchCandidate(candidates, star, priority) {
   if (!star || !star.id || !Number.isFinite(star.raHours) || !Number.isFinite(star.decDeg)) {
     return;
@@ -1143,7 +1153,8 @@ function addSearchCandidate(candidates, star, priority) {
     return;
   }
 
-  const existing = candidates.get(star.id);
+  const key = `star:${star.id}`;
+  const existing = candidates.get(key);
   if (
     existing &&
     (
@@ -1157,7 +1168,9 @@ function addSearchCandidate(candidates, star, priority) {
     return;
   }
 
-  candidates.set(star.id, {
+  candidates.set(key, {
+    id: key,
+    type: "star",
     star,
     aliases,
     normalizedAliases,
@@ -1165,11 +1178,58 @@ function addSearchCandidate(candidates, star, priority) {
   });
 }
 
-function buildStarSearchCandidates() {
+function addConstellationSearchCandidate(candidates, constellation, priority) {
+  if (
+    !constellation ||
+    !constellation.id ||
+    !Number.isFinite(constellation.raHours) ||
+    !Number.isFinite(constellation.decDeg)
+  ) {
+    return;
+  }
+
+  const aliases = getConstellationSearchAliases(constellation);
+  const normalizedAliases = Array.from(new Set(aliases.map(normalizeStarName).filter(Boolean)));
+  if (!normalizedAliases.length) {
+    return;
+  }
+
+  const key = `constellation:${constellation.id}`;
+  candidates.set(key, {
+    id: key,
+    type: "constellation",
+    constellation,
+    aliases,
+    normalizedAliases,
+    priority
+  });
+}
+
+function compareSearchCandidates(a, b) {
+  if (a.priority !== b.priority) {
+    return a.priority - b.priority;
+  }
+
+  if (a.type !== b.type) {
+    return a.type === "constellation" ? -1 : 1;
+  }
+
+  if (a.type === "constellation") {
+    return a.constellation.name.localeCompare(b.constellation.name);
+  }
+
+  return Number(a.star.mag) - Number(b.star.mag);
+}
+
+function buildSearchCandidates() {
   const candidates = new Map();
 
+  for (const constellation of CONSTELLATIONS) {
+    addConstellationSearchCandidate(candidates, constellation, 0);
+  }
+
   for (const star of getAvailableStars()) {
-    addSearchCandidate(candidates, star, 0);
+    addSearchCandidate(candidates, star, 1);
   }
 
   for (const sourceStar of getVirtualSkySourceStars()) {
@@ -1183,33 +1243,29 @@ function buildStarSearchCandidates() {
       continue;
     }
 
-    addSearchCandidate(candidates, buildCatalogStarFromRaw(rawStar), 2);
+    addSearchCandidate(candidates, buildCatalogStarFromRaw(rawStar), 3);
   }
 
   for (const star of BRIGHT_STARS) {
-    addSearchCandidate(candidates, star, 3);
+    addSearchCandidate(candidates, star, 4);
   }
 
-  return Array.from(candidates.values()).sort((a, b) => {
-    if (a.priority !== b.priority) {
-      return a.priority - b.priority;
-    }
-    return Number(a.star.mag) - Number(b.star.mag);
-  });
+  return Array.from(candidates.values()).sort(compareSearchCandidates);
 }
 
 function scoreSearchCandidate(candidate, query) {
   let score = Number.POSITIVE_INFINITY;
 
-  for (const alias of candidate.normalizedAliases) {
+  for (const [index, alias] of candidate.normalizedAliases.entries()) {
+    const aliasWeight = Math.min(index, 6) * 0.02;
     if (alias === query) {
-      score = Math.min(score, 0);
+      score = Math.min(score, aliasWeight);
     } else if (alias.startsWith(query)) {
-      score = Math.min(score, 1 + alias.length / 1000);
+      score = Math.min(score, 1 + alias.length / 1000 + aliasWeight);
     } else if (alias.includes(query)) {
-      score = Math.min(score, 2 + alias.indexOf(query) / 1000);
+      score = Math.min(score, 2 + alias.indexOf(query) / 1000 + aliasWeight);
     } else if (query.includes(alias) && alias.length >= 4) {
-      score = Math.min(score, 3 + query.length / 1000);
+      score = Math.min(score, 3 + query.length / 1000 + aliasWeight);
     }
   }
 
@@ -1225,7 +1281,7 @@ function findStarSearchCandidate(query) {
   let bestCandidate = null;
   let bestScore = Number.POSITIVE_INFINITY;
 
-  for (const candidate of buildStarSearchCandidates()) {
+  for (const candidate of buildSearchCandidates()) {
     const score = scoreSearchCandidate(candidate, normalizedQuery);
     if (!Number.isFinite(score)) {
       continue;
@@ -1235,7 +1291,7 @@ function findStarSearchCandidate(query) {
       score < bestScore ||
       (
         score === bestScore &&
-        Number(candidate.star.mag) < Number(bestCandidate?.star?.mag ?? Number.POSITIVE_INFINITY)
+        compareSearchCandidates(candidate, bestCandidate) < 0
       )
     ) {
       bestCandidate = candidate;
@@ -1244,6 +1300,27 @@ function findStarSearchCandidate(query) {
   }
 
   return bestCandidate;
+}
+
+function getSearchCandidateOptionEntries(candidate) {
+  if (candidate.type === "constellation") {
+    const constellation = candidate.constellation;
+    const label = `Constelacion · ${constellation.name} · ${constellation.iau}`;
+    const entries = [{ value: constellation.name, label }];
+    if (normalizeStarName(constellation.nameEs) !== normalizeStarName(constellation.name)) {
+      entries.push({
+        value: constellation.nameEs,
+        label
+      });
+    }
+    return entries;
+  }
+
+  const name = String(candidate.star.name || "").trim();
+  return [{
+    value: name,
+    label: `${candidate.star.constellation || "Campo actual"} · mag ${fmtStarValue(candidate.star.mag)}`
+  }];
 }
 
 function syncSearchOptions() {
@@ -1255,19 +1332,25 @@ function syncSearchOptions() {
   const usedNames = new Set();
   let count = 0;
 
-  for (const candidate of buildStarSearchCandidates()) {
-    const name = String(candidate.star.name || "").trim();
-    const normalized = normalizeStarName(name);
-    if (!name || usedNames.has(normalized)) {
-      continue;
-    }
+  for (const candidate of buildSearchCandidates()) {
+    for (const entry of getSearchCandidateOptionEntries(candidate)) {
+      const value = String(entry.value || "").trim();
+      const normalized = normalizeStarName(value);
+      if (!value || usedNames.has(normalized)) {
+        continue;
+      }
 
-    const option = document.createElement("option");
-    option.value = name;
-    option.label = `${candidate.star.constellation || "Campo actual"} · mag ${fmtStarValue(candidate.star.mag)}`;
-    fragment.append(option);
-    usedNames.add(normalized);
-    count += 1;
+      const option = document.createElement("option");
+      option.value = value;
+      option.label = entry.label;
+      fragment.append(option);
+      usedNames.add(normalized);
+      count += 1;
+
+      if (count >= SEARCH_OPTIONS_LIMIT) {
+        break;
+      }
+    }
 
     if (count >= SEARCH_OPTIONS_LIMIT) {
       break;
@@ -1331,6 +1414,24 @@ function upsertFocusedStar(star) {
   renderStarsList(true);
   renderMapOverlay();
   renderVoiceStrip();
+}
+
+function focusConstellationCandidate(candidate) {
+  const constellation = candidate.constellation;
+  const centered = centerSkyOnStar(constellation);
+  if (centered) {
+    refreshSkyState({ forceList: true });
+  }
+
+  const normalizedConstellation = normalizeStarName(constellation.name);
+  const visibleCount = getAvailableStars().filter(
+    (star) => normalizeStarName(star.constellation) === normalizedConstellation
+  ).length;
+  const countText = visibleCount === 1
+    ? "1 estrella en el campo"
+    : `${visibleCount} estrellas en el campo`;
+
+  setStatus(`${constellation.name} centrada · ${countText}.`);
 }
 
 function getSelectedStar() {
@@ -1782,6 +1883,11 @@ function updateSummary() {
 }
 
 function focusSearchCandidate(candidate) {
+  if (candidate.type === "constellation") {
+    focusConstellationCandidate(candidate);
+    return;
+  }
+
   const centered = centerSkyOnStar(candidate.star);
   if (centered) {
     refreshSkyState({ forceList: true });
