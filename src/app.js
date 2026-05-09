@@ -1302,6 +1302,14 @@ function findStarSearchCandidate(query) {
   return bestCandidate;
 }
 
+function getSearchCandidateName(candidate) {
+  if (candidate?.type === "constellation") {
+    return candidate.constellation.name;
+  }
+
+  return candidate?.star?.name || "";
+}
+
 function getSearchCandidateOptionEntries(candidate) {
   if (candidate.type === "constellation") {
     const constellation = candidate.constellation;
@@ -2207,19 +2215,19 @@ function bindEvents() {
     const candidate = findStarSearchCandidate(query);
 
     if (!candidate) {
-      setStatus(`No encontre una estrella llamada "${query.trim()}".`);
+      setStatus(`No encontre estrella o constelacion llamada "${query.trim()}".`);
       return;
     }
 
     if (dom.starSearchInput) {
-      dom.starSearchInput.value = candidate.star.name;
+      dom.starSearchInput.value = getSearchCandidateName(candidate);
     }
     setSoundMenuOpen(false);
     setInfoModalOpen(false);
     try {
       focusSearchCandidate(candidate);
     } catch {
-      setStatus("No se pudo buscar y tocar esa estrella.");
+      setStatus("No se pudo completar la busqueda.");
     }
   });
 
