@@ -34,6 +34,31 @@
         </select>
       </div>
 
+      <form id="star-search-form" class="topbar-group topbar-group-search star-search" role="search" aria-label="Buscar estrella">
+        <label class="sr-only" for="star-search">Buscar estrella</label>
+        <input
+          id="star-search"
+          type="search"
+          list="star-search-options"
+          placeholder="Buscar estrella"
+          autocomplete="off"
+          spellcheck="false"
+        >
+        <datalist id="star-search-options"></datalist>
+        <button
+          id="btn-star-search"
+          class="btn btn-mini btn-icon-search"
+          type="submit"
+          aria-label="Buscar estrella"
+          title="Buscar estrella"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="10.8" cy="10.8" r="6.2"></circle>
+            <path d="M15.4 15.4L21 21"></path>
+          </svg>
+        </button>
+      </form>
+
       <div class="topbar-group topbar-group-metrics" role="group" aria-label="Metricas">
         <div class="performance-badge" aria-label="Campo visible activo">
           <span class="performance-badge-label">Set</span>
@@ -179,7 +204,7 @@
       </section>
       <section class="info-modal-section">
         <h2>Cómo se usa</h2>
-        <p>Click en una estrella del mapa o de la tira inferior para abrir su ficha. `Shift + click` activa o apaga un drone. El botón de volumen enciende o silencia el campo. La nota abre mezcla. GPS actualiza la ubicación.</p>
+        <p>Click en una estrella del mapa o de la tira inferior abre su ficha. En el panel de set cada estrella entra o sale del arpegiador. El buscador centra la estrella y dispara su nota. `Shift + click` activa o apaga un drone. El botón de volumen enciende o silencia el campo.</p>
       </section>
       <section class="info-modal-section">
         <h2>Alcance actual</h2>
@@ -295,10 +320,10 @@
       </div>
     </section>
 
-    <aside class="side-stack" aria-label="Inspector y set" hidden>
+    <aside class="side-stack" aria-label="Set arpegiador">
       <aside class="stars-panel" id="stars-panel" aria-label="Estrellas visibles">
         <div class="panel-head">
-          <h2>Set activo</h2>
+          <h2>Set arpegiador</h2>
           <p id="stars-meta"></p>
         </div>
         <div id="stars-list" class="stars-list"></div>

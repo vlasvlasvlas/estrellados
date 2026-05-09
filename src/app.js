@@ -1,12 +1,13 @@
 import { BRIGHT_STARS } from "./stars-catalog.js";
-import { collectVisibleStars, getObservationDate, starToSoundProfile } from "./astro.js";
+import { collectVisibleStars, equatorialToHorizontal, getObservationDate, starToSoundProfile } from "./astro.js";
 import { SoundEngine } from "./sound-engine.js";
 
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
 const PERFORMANCE_MIN_ALTITUDE_DEG = -90;
-const FRAME_STAR_LIMIT = 900;
-const FRAME_STAR_MAG_LIMIT = 6.8;
+const FRAME_STAR_LIMIT = 2400;
+const FRAME_STAR_MAG_LIMIT = 7.2;
+const SEARCH_OPTIONS_LIMIT = 180;
 const MAP_PICK_RADIUS_PX = 28;
 const MAP_DRAG_THRESHOLD_PX = 8;
 const MAP_CLICK_SUPPRESS_MS = 240;
@@ -113,6 +114,9 @@ const dom = {
   starHotspots: document.querySelector("#star-hotspots"),
   starsMeta: document.querySelector("#stars-meta"),
   starsList: document.querySelector("#stars-list"),
+  starSearchForm: document.querySelector("#star-search-form"),
+  starSearchInput: document.querySelector("#star-search"),
+  starSearchOptions: document.querySelector("#star-search-options"),
   btnGps: document.querySelector("#btn-gps"),
   btnSoundToggle: document.querySelector("#btn-sound-toggle"),
   btnSoundMenu: document.querySelector("#btn-sound-menu"),
@@ -181,6 +185,15 @@ function normalizeStarName(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function shortName(value, max = 14) {
@@ -642,6 +655,7 @@ function toggleStarEnabled(starId) {
 
   if (state.enabledStarIds.has(starId)) {
     state.enabledStarIds.delete(starId);
+    state.forceSilent = state.enabledStarIds.size === 0;
     return false;
   }
 
@@ -685,16 +699,7 @@ function computeSoundPoolFromEnabled() {
     return availableStars.slice();
   }
 
-  const manualPool = availableStars.filter((star) => state.enabledStarIds.has(star.id));
-  if (manualPool.length) {
-    return manualPool;
-  }
-
-  if (state.forceSilent) {
-    return [];
-  }
-
-  return availableStars.slice();
+  return availableStars.filter((star) => state.enabledStarIds.has(star.id));
 }
 
 function pruneFieldState() {
@@ -704,6 +709,9 @@ function pruneFieldState() {
     state.enabledStarIds = new Set(
       Array.from(state.enabledStarIds).filter((starId) => visibleIds.has(starId))
     );
+    if (state.enabledStarIds.size === 0) {
+      state.forceSilent = true;
+    }
   }
 
   for (const starId of Array.from(soundEngine.activeDrones.keys())) {
@@ -935,6 +943,54 @@ function normalizeVirtualSkyCatalogStar(rawStar) {
   };
 }
 
+function getVirtualSkySourceStars() {
+  if (!skyInstance) {
+    return [];
+  }
+
+  if (Array.isArray(skyInstance.stars) && skyInstance.stars.length) {
+    return skyInstance.stars;
+  }
+
+  if (skyInstance.lookup && Array.isArray(skyInstance.lookup.star)) {
+    return skyInstance.lookup.star;
+  }
+
+  return [];
+}
+
+function getVirtualSkyStarLabel(rawStar) {
+  const fallbackId = `${rawStar.ra.toFixed(6)}:${rawStar.dec.toFixed(6)}`;
+  return rawStar.label == null ? fallbackId : String(rawStar.label);
+}
+
+function getVirtualSkyTranslatedName(label) {
+  return skyInstance?.starnames?.[label] || skyInstance?.lang?.starnames?.[label] || "";
+}
+
+function buildCatalogStarFromRaw(rawStar, fallbackName = "") {
+  const label = getVirtualSkyStarLabel(rawStar);
+  const translatedName = getVirtualSkyTranslatedName(label);
+  const mag = Number.isFinite(rawStar.mag) ? rawStar.mag : 4;
+  const resolvedName = fallbackName || translatedName || (/^\d+$/.test(label) ? `HIP ${label}` : `Campo ${label}`);
+  const catalogData = resolveFrameStarCatalogData(rawStar, translatedName, fallbackName, mag, resolvedName);
+  const hipAlias = /^\d+$/.test(label) ? `HIP ${label}` : "";
+
+  return {
+    id: getVirtualSkyStarIdentity(label),
+    name: catalogData.name || resolvedName,
+    constellation: catalogData.constellation || "Campo actual",
+    raHours: rawStar.ra * RAD_TO_DEG / 15,
+    decDeg: rawStar.dec * RAD_TO_DEG,
+    mag,
+    distanceLy: catalogData.distanceLy,
+    spectral: catalogData.spectral,
+    bv: catalogData.bv,
+    estimatedCatalogData: Boolean(catalogData.estimatedCatalogData),
+    searchAliases: [translatedName, fallbackName, resolvedName, hipAlias, label].filter(Boolean)
+  };
+}
+
 function buildVirtualSkyMapStar(rawStar, fallbackName) {
   if (
     !skyInstance ||
@@ -962,22 +1018,10 @@ function buildVirtualSkyMapStar(rawStar, fallbackName) {
     return null;
   }
 
-  const fallbackId = `${rawStar.ra.toFixed(6)}:${rawStar.dec.toFixed(6)}`;
-  const hipId = rawStar.label == null ? fallbackId : String(rawStar.label);
-  const translatedName = skyInstance.starnames?.[hipId] || skyInstance.lang?.starnames?.[hipId];
-  const mag = Number.isFinite(rawStar.mag) ? rawStar.mag : 4;
-  const resolvedName = fallbackName || translatedName || `HIP ${hipId}`;
-  const catalogData = resolveFrameStarCatalogData(rawStar, translatedName, fallbackName, mag, resolvedName);
+  const catalogStar = buildCatalogStarFromRaw(rawStar, fallbackName);
 
   return {
-    id: getVirtualSkyStarIdentity(hipId),
-    name: catalogData.name || resolvedName,
-    constellation: catalogData.constellation || "Campo actual",
-    mag,
-    distanceLy: catalogData.distanceLy,
-    spectral: catalogData.spectral,
-    bv: catalogData.bv,
-    estimatedCatalogData: Boolean(catalogData.estimatedCatalogData),
+    ...catalogStar,
     altitudeDeg,
     azimuthDeg: horizontal[1] * RAD_TO_DEG,
     mapX: point.x,
@@ -1002,9 +1046,7 @@ function buildFrameStars() {
     return [];
   }
 
-  const sourceStars = Array.isArray(skyInstance.stars) && skyInstance.stars.length
-    ? skyInstance.stars
-    : skyInstance.lookup.star;
+  const sourceStars = getVirtualSkySourceStars();
   const frameStars = [];
   const seenIds = new Set();
 
@@ -1078,6 +1120,219 @@ function getStarById(starId) {
     state.visibleStars.find((star) => star.id === starId);
 }
 
+function getStarSearchAliases(star) {
+  const hipFromVirtualSkyId = String(star?.id || "").match(/^vs-(\d+)$/);
+  return Array.from(new Set([
+    star?.name,
+    star?.id,
+    star?.constellation,
+    getStarExternalQuery(star),
+    ...(Array.isArray(star?.searchAliases) ? star.searchAliases : []),
+    hipFromVirtualSkyId ? `HIP ${hipFromVirtualSkyId[1]}` : ""
+  ].filter(Boolean)));
+}
+
+function addSearchCandidate(candidates, star, priority) {
+  if (!star || !star.id || !Number.isFinite(star.raHours) || !Number.isFinite(star.decDeg)) {
+    return;
+  }
+
+  const aliases = getStarSearchAliases(star);
+  const normalizedAliases = Array.from(new Set(aliases.map(normalizeStarName).filter(Boolean)));
+  if (!normalizedAliases.length) {
+    return;
+  }
+
+  const existing = candidates.get(star.id);
+  if (
+    existing &&
+    (
+      existing.priority < priority ||
+      (
+        existing.priority === priority &&
+        Number(existing.star.mag) <= Number(star.mag)
+      )
+    )
+  ) {
+    return;
+  }
+
+  candidates.set(star.id, {
+    star,
+    aliases,
+    normalizedAliases,
+    priority
+  });
+}
+
+function buildStarSearchCandidates() {
+  const candidates = new Map();
+
+  for (const star of getAvailableStars()) {
+    addSearchCandidate(candidates, star, 0);
+  }
+
+  for (const sourceStar of getVirtualSkySourceStars()) {
+    const rawStar = normalizeVirtualSkyCatalogStar(sourceStar);
+    if (!rawStar) {
+      continue;
+    }
+
+    const mag = Number(rawStar.mag);
+    if (!Number.isFinite(mag) || mag > FRAME_STAR_MAG_LIMIT) {
+      continue;
+    }
+
+    addSearchCandidate(candidates, buildCatalogStarFromRaw(rawStar), 2);
+  }
+
+  for (const star of BRIGHT_STARS) {
+    addSearchCandidate(candidates, star, 3);
+  }
+
+  return Array.from(candidates.values()).sort((a, b) => {
+    if (a.priority !== b.priority) {
+      return a.priority - b.priority;
+    }
+    return Number(a.star.mag) - Number(b.star.mag);
+  });
+}
+
+function scoreSearchCandidate(candidate, query) {
+  let score = Number.POSITIVE_INFINITY;
+
+  for (const alias of candidate.normalizedAliases) {
+    if (alias === query) {
+      score = Math.min(score, 0);
+    } else if (alias.startsWith(query)) {
+      score = Math.min(score, 1 + alias.length / 1000);
+    } else if (alias.includes(query)) {
+      score = Math.min(score, 2 + alias.indexOf(query) / 1000);
+    } else if (query.includes(alias) && alias.length >= 4) {
+      score = Math.min(score, 3 + query.length / 1000);
+    }
+  }
+
+  return score;
+}
+
+function findStarSearchCandidate(query) {
+  const normalizedQuery = normalizeStarName(query);
+  if (!normalizedQuery) {
+    return null;
+  }
+
+  let bestCandidate = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (const candidate of buildStarSearchCandidates()) {
+    const score = scoreSearchCandidate(candidate, normalizedQuery);
+    if (!Number.isFinite(score)) {
+      continue;
+    }
+
+    if (
+      score < bestScore ||
+      (
+        score === bestScore &&
+        Number(candidate.star.mag) < Number(bestCandidate?.star?.mag ?? Number.POSITIVE_INFINITY)
+      )
+    ) {
+      bestCandidate = candidate;
+      bestScore = score;
+    }
+  }
+
+  return bestCandidate;
+}
+
+function syncSearchOptions() {
+  if (!dom.starSearchOptions) {
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  const usedNames = new Set();
+  let count = 0;
+
+  for (const candidate of buildStarSearchCandidates()) {
+    const name = String(candidate.star.name || "").trim();
+    const normalized = normalizeStarName(name);
+    if (!name || usedNames.has(normalized)) {
+      continue;
+    }
+
+    const option = document.createElement("option");
+    option.value = name;
+    option.label = `${candidate.star.constellation || "Campo actual"} · mag ${fmtStarValue(candidate.star.mag)}`;
+    fragment.append(option);
+    usedNames.add(normalized);
+    count += 1;
+
+    if (count >= SEARCH_OPTIONS_LIMIT) {
+      break;
+    }
+  }
+
+  dom.starSearchOptions.replaceChildren(fragment);
+}
+
+function centerSkyOnStar(star) {
+  if (
+    !skyInstance ||
+    typeof skyInstance.setRADec !== "function" ||
+    !Number.isFinite(star?.raHours) ||
+    !Number.isFinite(star?.decDeg)
+  ) {
+    return false;
+  }
+
+  skyInstance.setRADec(star.raHours * 15, star.decDeg);
+  if (typeof skyInstance.draw === "function") {
+    skyInstance.draw();
+  }
+  syncSkyViewport();
+  return true;
+}
+
+function projectSearchStar(star) {
+  if (!star || !Number.isFinite(star.raHours) || !Number.isFinite(star.decDeg)) {
+    return null;
+  }
+
+  const horizontal = equatorialToHorizontal(
+    star,
+    getCurrentObservationDate(),
+    state.latitude,
+    state.longitude
+  );
+  const locatedStar = {
+    ...star,
+    altitudeDeg: horizontal.altitudeDeg,
+    azimuthDeg: horizontal.azimuthDeg
+  };
+
+  return getProjectedStar(locatedStar) || locatedStar;
+}
+
+function upsertFocusedStar(star) {
+  if (!star || !star.id) {
+    return;
+  }
+
+  state.frameStars = [
+    star,
+    ...state.frameStars.filter((candidate) => candidate.id !== star.id)
+  ];
+  state.performerStars = buildPerformerStars();
+  soundEngine.updateArpPool(computeSoundPoolFromEnabled());
+  updateStarsMeta(getCurrentObservationDate());
+  updateSummary();
+  renderStarsList(true);
+  renderMapOverlay();
+  renderVoiceStrip();
+}
+
 function getSelectedStar() {
   if (!state.selectedStarId) {
     return null;
@@ -1085,8 +1340,13 @@ function getSelectedStar() {
   return getStarById(state.selectedStarId);
 }
 
+function getStarCardById(starId) {
+  return Array.from(dom.starsList.querySelectorAll(".star-card"))
+    .find((card) => card.dataset.starId === starId) || null;
+}
+
 function focusStarCard(starId) {
-  const card = dom.starsList.querySelector(`.star-card[data-star-id="${starId}"]`);
+  const card = getStarCardById(starId);
   if (!card) {
     return;
   }
@@ -1228,7 +1488,7 @@ function renderVoiceStrip() {
     dom.voiceStrip.innerHTML = `
       <article class="voice-chip">
         <strong>Esperando pulso</strong>
-        <span>${getAvailableStars().length} en set</span>
+        <span>${computeSoundPoolFromEnabled().length} en arpegio</span>
         <small>${state.bpm} bpm · listo</small>
       </article>
     `;
@@ -1242,8 +1502,8 @@ function renderVoiceStrip() {
     const isDroneActive = soundEngine.activeDrones.has(star.id);
 
     return `
-      <button class="voice-chip${isCurrent ? " is-current" : ""}${isSelected ? " is-selected" : ""}" style="--voice-accent:${accent}" data-action="inspect-voice" data-star-id="${star.id}" type="button">
-        <strong>${shortName(star.name, 15)}</strong>
+      <button class="voice-chip${isCurrent ? " is-current" : ""}${isSelected ? " is-selected" : ""}" style="--voice-accent:${accent}" data-action="inspect-voice" data-star-id="${escapeHtml(star.id)}" type="button">
+        <strong>${escapeHtml(shortName(star.name, 15))}</strong>
         <span>${index + 1} · ${fmtStarValue(star.altitudeDeg, 0)}°</span>
         <small>${isDroneActive ? "drone" : "step"} · ${fmtStarValue(star.mag)}</small>
       </button>
@@ -1353,14 +1613,14 @@ function renderStarsList(force = false) {
   state.lastListSignature = signature;
 
   dom.starsList.innerHTML = fieldStars.map((star) => `
-    <article class="star-card" data-star-id="${star.id}">
-      <button class="star-card-button" data-action="select" data-star-id="${star.id}">
+    <article class="star-card" data-star-id="${escapeHtml(star.id)}">
+      <button class="star-card-button" data-action="select" data-star-id="${escapeHtml(star.id)}">
         <div class="star-card-head">
-          <h3>${star.name}</h3>
+          <h3>${escapeHtml(star.name)}</h3>
           <span class="star-card-state" data-role="state"></span>
         </div>
         <div class="star-data">
-          <span>${star.constellation}</span>
+          <span>${escapeHtml(star.constellation)}</span>
           <span>Altitud ${fmtStarValue(star.altitudeDeg)}°</span>
           <span>Magnitud ${fmtStarValue(star.mag)}</span>
         </div>
@@ -1390,7 +1650,7 @@ function syncStarsListVisualState() {
       } else if (isCurrent) {
         stateNode.textContent = "arpegio";
       } else if (enabled) {
-        stateNode.textContent = "visible";
+        stateNode.textContent = "arpegio";
       } else {
         stateNode.textContent = "afuera";
       }
@@ -1424,6 +1684,10 @@ function renderInspector() {
   const isDroneActive = soundEngine.activeDrones.has(star.id);
   const usesEstimatedCatalogData = Boolean(star.estimatedCatalogData);
   const externalUrl = getStarExternalUrl(star);
+  const spectralValue = escapeHtml(star.spectral);
+  const spectralText = escapeHtml(getSpectralText(star.spectral));
+  const spectralLabel = escapeHtml(getSpectralLabel(star.spectral));
+  const panText = escapeHtml(getPanText(profile.pan));
 
   dom.inspector.style.setProperty("--inspector-accent", getSpectralAccent(star));
   dom.inspectorName.textContent = star.name;
@@ -1443,12 +1707,12 @@ function renderInspector() {
     <span class="metric-pill">Altitud ${fmtStarValue(star.altitudeDeg)}°</span>
     <span class="metric-pill">Azimut ${fmtStarValue(star.azimuthDeg)}°</span>
     <span class="metric-pill">Magnitud ${fmtStarValue(star.mag)}</span>
-    <span class="metric-pill">Espectral ${star.spectral}</span>
+    <span class="metric-pill">Espectral ${spectralValue}</span>
     <span class="metric-pill">Distancia ${fmtStarValue(star.distanceLy, 1)} ly</span>
   `;
   dom.inspectorSonic.innerHTML = `
-    <span class="metric-pill">${getSpectralText(star.spectral)}</span>
-    <span class="metric-pill">Paneo ${getPanText(profile.pan)}</span>
+    <span class="metric-pill">${spectralText}</span>
+    <span class="metric-pill">Paneo ${panText}</span>
     <span class="metric-pill">Frecuencia ${Math.round(soundDescription.frequencyHz)} hz</span>
     <span class="metric-pill">Brillo ${Math.round(soundDescription.brightness * 100)}%</span>
   `;
@@ -1458,9 +1722,9 @@ function renderInspector() {
         <div class="inspector-info-title">Datos de la estrella</div>
         <div class="inspector-info-grid">
           <div class="inspector-info-row"><span>Altitud</span><strong>${fmtStarValue(star.altitudeDeg)}° sobre el horizonte</strong></div>
-          <div class="inspector-info-row"><span>Azimut</span><strong>${fmtStarValue(star.azimuthDeg)}° · ${getPanText(profile.pan)}</strong></div>
+          <div class="inspector-info-row"><span>Azimut</span><strong>${fmtStarValue(star.azimuthDeg)}° · ${panText}</strong></div>
           <div class="inspector-info-row"><span>Magnitud aparente</span><strong>${fmtStarValue(star.mag)} · regula brillo</strong></div>
-          <div class="inspector-info-row"><span>Tipo espectral</span><strong>${star.spectral} · ${getSpectralLabel(star.spectral)}</strong></div>
+          <div class="inspector-info-row"><span>Tipo espectral</span><strong>${spectralValue} · ${spectralLabel}</strong></div>
           <div class="inspector-info-row"><span>Color visible</span><strong>sale de temperatura estelar / indice B-V</strong></div>
           <div class="inspector-info-row"><span>Distancia</span><strong>${fmtStarValue(star.distanceLy, 1)} años luz</strong></div>
           <div class="inspector-info-row"><span>Halo visual</span><strong>mezcla brillo aparente e intensidad intrinseca</strong></div>
@@ -1470,7 +1734,7 @@ function renderInspector() {
         <div class="inspector-info-title">Como se vuelve sonido</div>
         <div class="inspector-info-grid">
           <div class="inspector-info-row"><span>Altitud</span><strong>mueve la base tonal a ${Math.round(soundDescription.frequencyHz)} hz</strong></div>
-          <div class="inspector-info-row"><span>Azimut</span><strong>paneo ${getPanText(profile.pan)}</strong></div>
+          <div class="inspector-info-row"><span>Azimut</span><strong>paneo ${panText}</strong></div>
           <div class="inspector-info-row"><span>Magnitud</span><strong>brillo ${Math.round(soundDescription.brightness * 100)}%</strong></div>
           <div class="inspector-info-row"><span>Tipo espectral</span><strong>define el timbre</strong></div>
           <div class="inspector-info-row"><span>Distancia + color B-V</span><strong>modulan filtro, vibrato y armonicos</strong></div>
@@ -1498,7 +1762,8 @@ function updateStarsMeta(observationDate) {
   });
 
   const fieldStars = getAvailableStars().length;
-  dom.starsMeta.textContent = `${fieldStars} estrellas · ${dateText}`;
+  const activeVoices = computeSoundPoolFromEnabled().length;
+  dom.starsMeta.textContent = `${fieldStars} visibles · ${activeVoices} en arpegio · ${dateText}`;
 }
 
 function updateMapInfo() {
@@ -1507,13 +1772,43 @@ function updateMapInfo() {
 }
 
 function updateSummary() {
-  const fieldStars = getAvailableStars().length;
+  const activeVoices = computeSoundPoolFromEnabled().length;
 
-  dom.voiceCount.textContent = String(fieldStars);
+  dom.voiceCount.textContent = String(activeVoices);
   dom.summaryTitle.textContent = "";
   dom.transportMeta.textContent = "";
   dom.transportMeta.hidden = true;
   syncSoundToggleButton();
+}
+
+function focusSearchCandidate(candidate) {
+  const centered = centerSkyOnStar(candidate.star);
+  if (centered) {
+    refreshSkyState({ forceList: true });
+  }
+
+  const projectedStar = getStarById(candidate.star.id) || projectSearchStar(candidate.star);
+  if (!projectedStar) {
+    setStatus(`No pude ubicar ${candidate.star.name} en el campo actual.`);
+    return;
+  }
+
+  if (!getStarById(projectedStar.id)) {
+    upsertFocusedStar(projectedStar);
+  }
+
+  const star = getStarById(projectedStar.id) || projectedStar;
+  openInspectorForStar(star, { scroll: true });
+
+  const horizonText = star.altitudeDeg < 0 ? " bajo el horizonte" : "";
+  setStatus(`${star.name} encontrada${horizonText}.`);
+  playStarFromInteraction(star, "search")
+    .then(() => {
+      setStatus(`${star.name} encontrada${horizonText} y sonando.`);
+    })
+    .catch(() => {
+      setStatus(`${star.name} encontrada${horizonText}. Activa audio para escucharla.`);
+    });
 }
 
 async function playStarFromInteraction(star, sourceLabel) {
@@ -1532,7 +1827,6 @@ function toggleStarFromInteraction(star, sourceLabel) {
     soundEngine.stopDroneById(star.id, 0.5);
   }
 
-  state.forceSilent = false;
   refreshSkyState({ forceList: false });
   setStatus(`${star.name} ${enabled ? "entra" : "sale"} del flujo.`);
 }
@@ -1558,7 +1852,6 @@ function toggleSelectedStarInFlow() {
   if (!enabled && soundEngine.activeDrones.has(star.id)) {
     soundEngine.toggleDrone(star).catch(() => {});
   }
-  state.forceSilent = false;
   refreshSkyState({ forceList: false });
   setStatus(`${star.name} ${enabled ? "entra" : "sale"}.`);
 }
@@ -1669,6 +1962,7 @@ function refreshSkyState(options = {}) {
   renderMapOverlay();
   renderVoiceStrip();
   renderStarsList(forceList);
+  syncSearchOptions();
 }
 
 function resetSkyMap() {
@@ -1801,6 +2095,28 @@ async function toggleFullscreen() {
 }
 
 function bindEvents() {
+  dom.starSearchForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const query = dom.starSearchInput?.value || "";
+    const candidate = findStarSearchCandidate(query);
+
+    if (!candidate) {
+      setStatus(`No encontre una estrella llamada "${query.trim()}".`);
+      return;
+    }
+
+    if (dom.starSearchInput) {
+      dom.starSearchInput.value = candidate.star.name;
+    }
+    setSoundMenuOpen(false);
+    setInfoModalOpen(false);
+    try {
+      focusSearchCandidate(candidate);
+    } catch {
+      setStatus("No se pudo buscar y tocar esa estrella.");
+    }
+  });
+
   dom.btnGps.addEventListener("click", requestGeolocation);
 
   dom.btnInfo?.addEventListener("click", (event) => {
